@@ -83,6 +83,16 @@ JT.theme <- theme(panel.border = element_rect(fill = NA, colour = "gray10"),
 @
 
 % Functions
+<<echo=FALSE>>=
+round_preserve_sum <- function(x, digits = 0) {
+  up <- 10 ^ digits
+  x <- x * up
+  y <- floor(x)
+  indices <- tail(order(x-y), round(sum(x)) - sum(y))
+  y[indices] <- y[indices] + 1
+  y / up
+}
+@
 
 \frontmatter
 \chapter*{On 3 January 2019, how many U.S. senators will be women?}
@@ -95,7 +105,7 @@ The situation has been described clearly by Khalid Hassan:
 \begin{itemize}
   \item There are 23 female senators at present: 10 of them are safe because they are not up for election, 13 are.
   \item Of these 13, 5 are in elections where the candidates of both parties (Dem and Rep) are female. This will automatically result in a female senator
-  \item The remaining 8 female senators face a male oponent. Their chances to win the election I code (for example for California) as \emph{pCal=0.99} which means that the female candidate (of whatever party) is this case has a 99\% chance of winning against her male oponent. These percentages can and will change. I take the average of Cook, Sabato, Inside Elections and 538 if they are all available. Otherwise I take the average of the available data from these 4 sources.
+  \item The remaining 8 female senators face a male oponent. Their chances to win the election I code (for example for California) as \emph{pCal=0.99} which means that the female candidate (of whatever party) is this case has a 99\% chance of winning against her male oponent. These percentages can and will change. I take the ''win"-prognosis from 538.
   \item There are 3 ''open" elections. In Arizona the contest is between 2 women and this will result in a female senator. In Nevada and in Tennesse there is a female vs. male contest. I will treat those two in the same way as mentioned above
 \end{itemize}
 
@@ -113,7 +123,8 @@ Conclusion:
 
 \section{2018-10-17}
 
-A first simulation assuming that all elections are independent of each other: 
+\subsection{Model assuming that all elections are independent of each other}
+This model uses a function \textit{round\_preserve\_sum}\sidenote{\url{https://stackoverflow.com/questions/32544646/round-vector-of-numerics-to-integer-while-preserving-their-sum}}.
 <<echo=TRUE>>=
 set.seed(2018)
 
@@ -154,17 +165,38 @@ elec.ind <- data.frame(Cal=XCal, Haw=XHaw,
                        Misso=XMisso, ND=XND, 
                        Neva=XNeva, Tenn=XTenn, 
                        tot=Y)
+
+# adding the 16 female senators we are sure about
+elec.ind$tot <- elec.ind$tot + 16
+
+# histogram
 p1 <- ggplot(data=elec.ind, aes(x=tot)) +
   geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
-  scale_x_continuous(limits = c(4, 11)) +
+  scale_x_continuous(breaks= seq(20, 26, by=1),limits = c(20, 27)) +
   scale_y_continuous(limits = c(0, 0.4)) +
-  labs(title="Independent races", x="number", y="density") +
+  labs(title="Independent races", x="number of female senators", y="density") +
   JT.theme
-elec.ind %>% count(tot) %>% mutate(perc=100*n/N)
+
+# table of probabilities
+elec.ind %>% count(tot) %>% mutate(perc=100*n/N) -> result.ind
+result.ind$perc.round <- round_preserve_sum(result.ind$perc,0)
 @
 
+\begin{tabular}{ l r }
+  19 or fewer & 0 \\
+  20 & 0 \\
+  21 & \Sexpr{result.ind$perc.round[1]} \\
+  22 & \Sexpr{result.ind$perc.round[2]} \\
+  23 & \Sexpr{result.ind$perc.round[3]} \\
+  24 & \Sexpr{result.ind$perc.round[4]} \\
+  25 or more & \Sexpr{result.ind$perc.round[5] + result.ind$perc.round[6]}
+\end{tabular}
+
+\subsection{Model with depence between the of race results}
+We assume here that if Heidi Heidkamp wins, this is an indication of a ''blue wave" that will lift McCaskill and Rosen to win. It does not affect those races where the probability of a win is higher than 70\%. This is important for the race in Tennessee because a ''blue wave" would improve the chances of Bredesen (male, Dem) and decrease the chances of Blackburn (female, Rep).
+
 <<echo=TRUE>>=
-# assuming some dependency: if Heidi Heidkamp wins, than this will lift up McCaskill and Rosen
+# assuming some dependency: if Heidi Heidkamp wins, than this will lift up McCaskill and Rosen.
 elec.dep <- elec.ind
 for (i in 1:N) {
   if(elec.dep$ND[i] == 1) {
@@ -173,13 +205,21 @@ for (i in 1:N) {
   }
 }
 elec.dep$tot <- elec.dep$Cal + elec.dep$Haw + elec.dep$Mass + elec.dep$Mich + elec.dep$Minn + elec.dep$Missi + elec.dep$Misso + elec.dep$ND + elec.dep$Neva + elec.dep$Tenn
+
+# adding the 16 female senators we are sure about
+elec.dep$tot <- elec.dep$tot + 16 
+
+# histogram
 p2 <- ggplot(data=elec.dep, aes(x=tot)) +
   geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
-  scale_x_continuous(limits = c(4, 11)) +
+  scale_x_continuous(breaks= seq(20, 26, by=1), limits = c(20, 27)) +
   scale_y_continuous(limits = c(0, 0.4)) +
-  labs(title="Dependent races", x="number", y="density") +
+  labs(title="Dependent races", x="number of female senators", y="density") +
   JT.theme
-elec.dep %>% count(tot) %>% mutate(perc=100*n/N)  
+
+# table of probabilities
+elec.dep %>% count(tot) %>% mutate(perc=100*n/N) -> result.dep
+result.dep$perc.round <- round_preserve_sum(result.dep$perc,0)
 @
 
 <<label=Sim1,fig=TRUE,include=FALSE, echo=TRUE>>=
@@ -188,11 +228,151 @@ grid.arrange(p1, p2, nrow=1)
 
 \begin{figure}
 \includegraphics[width=0.85\textwidth]{WS-Sim1}
-\caption{Probability of number of female senators elected 10 female/male races}
+\caption{Probability of number of female senators elected}
 \label{fig:Sim1}
 \setfloatalignment{b}% forces caption to be bottom-aligned
 \end{figure}
 
+\begin{tabular}{ l r }
+  19 or fewer & 0 \\
+  20 & 0 \\
+  21 & \Sexpr{result.dep$perc.round[1]} \\
+  22 & \Sexpr{result.dep$perc.round[2]} \\
+  23 & \Sexpr{result.dep$perc.round[3]} \\
+  24 & \Sexpr{result.dep$perc.round[4]} \\
+  25 or more & \Sexpr{result.dep$perc.round[5] + result.dep$perc.round[6]}
+\end{tabular}
+
+\subsection{Average of independent and dependent model}
+
+<<>>=
+result.avg <- (result.ind + result.dep)/2 
+result.avg$perc.round <- round_preserve_sum(result.avg$perc,0)
+@
+
+\begin{tabular}{ l r }
+  19 or fewer & 0 \\
+  20 & 0 \\
+  21 & \Sexpr{result.avg$perc.round[1]} \\
+  22 & \Sexpr{result.avg$perc.round[2]} \\
+  23 & \Sexpr{result.avg$perc.round[3]} \\
+  24 & \Sexpr{result.avg$perc.round[4]} \\
+  25 or more & \Sexpr{result.avg$perc.round[5] + result.avg$perc.round[6]} \\
+\end{tabular}
+
+\section{2018-10-18}
+
+Same calculation but with the latest forecasts by 538.
+
+<<echo=FALSE>>=
+set.seed(2018)
+
+# number of simulated elections
+N <- 10000
+
+# probability of a win for female candidate vs a man
+pCal <- 0.984
+pHaw <- 0.999
+pMass <- 0.999
+pMich <- 0.994
+pMinn <- 0.996
+pMissi <- 0.83
+pMisso <- 0.583
+pND <- 0.343
+pNeva <- 0.443
+pTenn <- 0.747
+
+# simulation of the N elections using a binomial distribution
+XCal <- rbinom(N, size=1, prob=pCal)
+XHaw <- rbinom(N, size=1, prob=pHaw)
+XMass <- rbinom(N, size=1, prob=pMass)
+XMich <- rbinom(N, size=1, prob=pMich)
+XMinn <- rbinom(N, size=1, prob=pMinn)
+XMissi <- rbinom(N, size=1, prob=pMissi)
+XMisso <- rbinom(N, size=1, prob=pMisso)
+XND <- rbinom(N, size=1, prob=pND)
+XNeva <- rbinom(N, size=1, prob=pNeva)
+XTenn <- rbinom(N, size=1, prob=pTenn)
+
+# assuming that all election results are independent of each other
+Y <- XCal + XHaw + XMass + XMich +
+  XMinn + XMissi + XMisso + 
+  XND + XNeva + XTenn
+elec.ind <- data.frame(Cal=XCal, Haw=XHaw, 
+                       Mass=XMass, Mich=XMich, 
+                       Minn=XMinn, Missi=XMissi, 
+                       Misso=XMisso, ND=XND, 
+                       Neva=XNeva, Tenn=XTenn, 
+                       tot=Y)
+
+# adding the 16 female senators we are sure about
+elec.ind$tot <- elec.ind$tot + 16
+
+# histogram
+p1 <- ggplot(data=elec.ind, aes(x=tot)) +
+  geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
+  scale_x_continuous(breaks= seq(20, 26, by=1),limits = c(20, 27)) +
+  scale_y_continuous(limits = c(0, 0.4)) +
+  labs(title="Independent races", x="number of female senators", y="density") +
+  JT.theme
+
+# table of probabilities
+elec.ind %>% count(tot) %>% mutate(perc=100*n/N) -> result.ind
+result.ind$perc.round <- round_preserve_sum(result.ind$perc,0)
+
+# assuming some dependency: if Heidi Heidkamp wins, than this will lift up McCaskill and Rosen.
+elec.dep <- elec.ind
+for (i in 1:N) {
+  if(elec.dep$ND[i] == 1) {
+    elec.dep$Misso[i] <- 1
+    elec.dep$Tenn[i] <- 1
+  }
+}
+elec.dep$tot <- elec.dep$Cal + elec.dep$Haw + elec.dep$Mass + elec.dep$Mich + elec.dep$Minn + elec.dep$Missi + elec.dep$Misso + elec.dep$ND + elec.dep$Neva + elec.dep$Tenn
+
+# adding the 16 female senators we are sure about
+elec.dep$tot <- elec.dep$tot + 16 
+
+# histogram
+p2 <- ggplot(data=elec.dep, aes(x=tot)) +
+  geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
+  scale_x_continuous(breaks= seq(20, 26, by=1), limits = c(20, 27)) +
+  scale_y_continuous(limits = c(0, 0.4)) +
+  labs(title="Dependent races", x="number of female senators", y="density") +
+  JT.theme
+
+# table of probabilities
+elec.dep %>% count(tot) %>% mutate(perc=100*n/N) -> result.dep
+result.dep$perc.round <- round_preserve_sum(result.dep$perc,0)
+@
+
+<<label=Sim2,fig=TRUE,include=FALSE, echo=FALSE>>=
+grid.arrange(p1, p2, nrow=1)
+@
+
+\begin{figure}
+\includegraphics[width=0.85\textwidth]{WS-Sim1}
+\caption{Probability of number of female senators elected}
+\label{fig:Sim1}
+\setfloatalignment{b}% forces caption to be bottom-aligned
+\end{figure}
+
+Average of independent and dependent model:
+
+<<echo=FALSE>>=
+result.avg <- (result.ind + result.dep)/2 
+result.avg$perc.round <- round_preserve_sum(result.avg$perc,0)
+@
+
+\begin{tabular}{ l r }
+  19 or fewer & 0 \\
+  20 & 0 \\
+  21 & \Sexpr{result.avg$perc.round[2]} \\
+  22 & \Sexpr{result.avg$perc.round[3]} \\
+  23 & \Sexpr{result.avg$perc.round[4]} \\
+  24 & \Sexpr{result.avg$perc.round[5]} \\
+  25 or more & \Sexpr{result.avg$perc.round[6] + result.avg$perc.round[7]} \\
+\end{tabular}
 
 \newpage
 \textbf{Thanks} \\

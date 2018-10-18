@@ -1,0 +1,206 @@
+\documentclass{tufte-book}
+\usepackage{graphicx}  % werken met figuren
+\usepackage{gensymb} % werken met wetenschappelijke eenheden\usepackage{geometry}
+\usepackage{changepage} % http://ctan.org/pkg/changepage
+\usepackage[dutch,british]{babel} % instelling van de taal (woordsplitsing, spellingscontrole)
+\usepackage[parfill]{parskip} % Paragrafen gescheiden door witte lijn en geen inspringing
+\usepackage[font=small,skip=3pt]{caption} % Minder ruimte tussen figuur/table en ondertitel. Ondertitel klein
+\usepackage{capt-of}
+\usepackage{indentfirst}
+\setlength{\parindent}{0.7cm}
+\usepackage{enumitem} % Laat enumerate werken met letters
+\usepackage{url}
+\usepackage{lipsum}
+\setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
+% Prints a trailing space in a smart way.
+\usepackage{xspace}
+\usepackage{hyperref}
+\usepackage{amsmath}
+
+\DeclareGraphicsExtensions{.pdf,.png,.jpg}
+
+% Alter some LaTeX defaults for better treatment of figures:
+% See p.105 of "TeX Unbound" for suggested values.
+% See pp. 199-200 of Lamport's "LaTeX" book for details.
+%   General parameters, for ALL pages:
+    \renewcommand{\topfraction}{0.9}	% max fraction of floats at top
+    \renewcommand{\bottomfraction}{0.9}	% max fraction of floats at bottom
+%   Parameters for TEXT pages (not float pages):
+    \setcounter{topnumber}{2}
+    \setcounter{bottomnumber}{2}
+    \setcounter{totalnumber}{4}     % 2 may work better
+    \renewcommand{\textfraction}{0.1}	% allow minimal text w. figs
+%   Parameters for FLOAT pages (not text pages):
+    \renewcommand{\floatpagefraction}{0.8}	% require fuller float pages
+% N.B.: floatpagefraction MUST be less than topfraction !!
+\setcounter{secnumdepth}{3}
+
+\newcommand{\tthdump}[1]{#1}
+
+\newcommand{\openepigraph}[2]{
+  \begin{fullwidth}
+  \sffamily\large
+    \begin{doublespace}
+      \noindent\allcaps{#1}\\ % epigraph
+      \noindent\allcaps{#2} % author
+    \end{doublespace}
+  \end{fullwidth}
+}
+
+
+\usepackage{makeidx}
+\makeindex
+
+\title{17 On 3 January 2019, how many U.S. senators will be women?}
+\author{Jan Trommelmans}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE,prefix.string=WS}
+\setkeys{Gin}{width=1.1\marginparwidth} %% Sweave
+
+<<echo=FALSE>>=
+library(tidyverse)
+library(broom)
+library(gridExtra)
+@
+
+% Setting the ggplot theme:
+<<echo=FALSE>>=
+JT.theme <- theme(panel.border = element_rect(fill = NA, colour = "gray10"),
+                  panel.background = element_blank(),
+                  panel.grid.major = element_line(colour = "gray85"),
+                  panel.grid.minor = element_line(colour = "gray85"),
+                  panel.grid.major.x = element_line(colour = "gray85"),
+                  axis.text = element_text(size = 8 , face = "bold"),
+                  axis.title = element_text(size = 9 , face = "bold"),
+                  plot.title = element_text(size = 12 , face = "bold"),
+                  strip.text = element_text(size = 8 , face = "bold"),
+                  strip.background = element_rect(colour = "black"),
+                  legend.text = element_text(size = 8),
+                  legend.title = element_text(size = 9 , face = "bold"),
+                  legend.background = element_rect(fill = "white"),
+                  legend.key = element_rect(fill = "white"))
+@
+
+% Functions
+
+\frontmatter
+\chapter*{On 3 January 2019, how many U.S. senators will be women?}
+
+\mainmatter
+\chapter{On 3 January 2019, how many U.S. senators will be women?}
+\section{Situation}
+The situation has been described clearly by Khalid Hassan: 
+
+\begin{itemize}
+  \item There are 23 female senators at present: 10 of them are safe because they are not up for election, 13 are.
+  \item Of these 13, 5 are in elections where the candidates of both parties (Dem and Rep) are female. This will automatically result in a female senator
+  \item The remaining 8 female senators face a male oponent. Their chances to win the election I code (for example for California) as \emph{pCal=0.99} which means that the female candidate (of whatever party) is this case has a 99\% chance of winning against her male oponent. These percentages can and will change. I take the average of Cook, Sabato, Inside Elections and 538 if they are all available. Otherwise I take the average of the available data from these 4 sources.
+  \item There are 3 ''open" elections. In Arizona the contest is between 2 women and this will result in a female senator. In Nevada and in Tennesse there is a female vs. male contest. I will treat those two in the same way as mentioned above
+\end{itemize}
+
+Conclusion: 
+
+\begin{tabular}{ l r }
+  not up for election & 10 \\
+  up for election but female vs. female & 5 \\
+  open but female vs. female & 1 \\
+  \hline
+  total certain female senator & 16 \\
+  \hline
+  \textbf{in contest with male oponent} & \textbf{10}
+\end{tabular}
+
+\section{2018-10-17}
+
+A first simulation assuming that all elections are independent of each other: 
+<<echo=TRUE>>=
+set.seed(2018)
+
+# number of simulated elections
+N <- 10000
+
+# probability of a win for female candidate vs a man
+pCal <- 0.99
+pHaw <- 0.99
+pMass <- 0.99
+pMich <- 0.99
+pMinn <- 0.99
+pMissi <- 0.83
+pMisso <- 0.55
+pND <- 0.3
+pNeva <- 0.47
+pTenn <- 0.8
+
+# simulation of the N elections using a binomial distribution
+XCal <- rbinom(N, size=1, prob=pCal)
+XHaw <- rbinom(N, size=1, prob=pHaw)
+XMass <- rbinom(N, size=1, prob=pMass)
+XMich <- rbinom(N, size=1, prob=pMich)
+XMinn <- rbinom(N, size=1, prob=pMinn)
+XMissi <- rbinom(N, size=1, prob=pMissi)
+XMisso <- rbinom(N, size=1, prob=pMisso)
+XND <- rbinom(N, size=1, prob=pND)
+XNeva <- rbinom(N, size=1, prob=pNeva)
+XTenn <- rbinom(N, size=1, prob=pTenn)
+
+# assuming that all election results are independent of each other
+Y <- XCal + XHaw + XMass + XMich +
+  XMinn + XMissi + XMisso + 
+  XND + XNeva + XTenn
+elec.ind <- data.frame(Cal=XCal, Haw=XHaw, 
+                       Mass=XMass, Mich=XMich, 
+                       Minn=XMinn, Missi=XMissi, 
+                       Misso=XMisso, ND=XND, 
+                       Neva=XNeva, Tenn=XTenn, 
+                       tot=Y)
+p1 <- ggplot(data=elec.ind, aes(x=tot)) +
+  geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
+  scale_x_continuous(limits = c(4, 11)) +
+  scale_y_continuous(limits = c(0, 0.4)) +
+  labs(title="Independent races", x="number", y="density") +
+  JT.theme
+elec.ind %>% count(tot) %>% mutate(perc=100*n/N)
+@
+
+<<echo=TRUE>>=
+# assuming some dependency: if Heidi Heidkamp wins, than this will lift up McCaskill and Rosen
+elec.dep <- elec.ind
+for (i in 1:N) {
+  if(elec.dep$ND[i] == 1) {
+    elec.dep$Misso[i] <- 1
+    elec.dep$Tenn[i] <- 1
+  }
+}
+elec.dep$tot <- elec.dep$Cal + elec.dep$Haw + elec.dep$Mass + elec.dep$Mich + elec.dep$Minn + elec.dep$Missi + elec.dep$Misso + elec.dep$ND + elec.dep$Neva + elec.dep$Tenn
+p2 <- ggplot(data=elec.dep, aes(x=tot)) +
+  geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
+  scale_x_continuous(limits = c(4, 11)) +
+  scale_y_continuous(limits = c(0, 0.4)) +
+  labs(title="Dependent races", x="number", y="density") +
+  JT.theme
+elec.dep %>% count(tot) %>% mutate(perc=100*n/N)  
+@
+
+<<label=Sim1,fig=TRUE,include=FALSE, echo=TRUE>>=
+grid.arrange(p1, p2, nrow=1)
+@
+
+\begin{figure}
+\includegraphics[width=0.85\textwidth]{WS-Sim1}
+\caption{Probability of number of female senators elected 10 female/male races}
+\label{fig:Sim1}
+\setfloatalignment{b}% forces caption to be bottom-aligned
+\end{figure}
+
+
+\newpage
+\textbf{Thanks} \\
+\medskip
+R Core Team (2018). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+\medskip
+<<>>=
+sessionInfo()
+@
+
+\end{document}

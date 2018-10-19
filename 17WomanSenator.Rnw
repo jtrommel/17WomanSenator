@@ -95,7 +95,7 @@ round_preserve_sum <- function(x, digits = 0) {
 @
 
 <<echo=FALSE>>=
-election <- function(prob, N) {
+election.ind <- function(prob, N) {
   set.seed(2018)
   
 # probability of a win for female candidate vs a man
@@ -137,7 +137,7 @@ election <- function(prob, N) {
   elec.ind$tot <- elec.ind$tot + 16
 
 # histogram
-  plot1 <- ggplot(data=elec.ind, aes(x=tot)) +
+  plot.fig <- ggplot(data=elec.ind, aes(x=tot)) +
     geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
     scale_x_continuous(breaks= seq(20, 26, by=1),limits = c(20, 27)) +
     scale_y_continuous(limits = c(0, 0.4)) +
@@ -148,6 +148,53 @@ election <- function(prob, N) {
   elec.ind %>% count(tot) %>% mutate(perc=100*n/N) -> result.ind
   result.ind$perc.round <- round_preserve_sum(result.ind$perc,0)
 
+# output
+  resultaat.ind <- list(result.ind=result.ind, plot.ind=plot.fig)
+  return(resultaat.ind)
+}
+@
+
+<<echo=FALSE>>=
+election.dep1 <- function(prob, N) { 
+    set.seed(2018)
+  
+# probability of a win for female candidate vs a man
+  pCal <- prob[1]
+  pHaw <- prob[2]
+  pMass <- prob[3]
+  pMich <- prob[4]
+  pMinn <- prob[5]
+  pMissi <- prob[6]
+  pMisso <- prob[7]
+  pND <- prob[8]
+  pNeva <- prob[9]
+  pTenn <- prob[10]
+
+# simulation of the N elections using a binomial distribution
+  XCal <- rbinom(N, size=1, prob=pCal)
+  XHaw <- rbinom(N, size=1, prob=pHaw)
+  XMass <- rbinom(N, size=1, prob=pMass)
+  XMich <- rbinom(N, size=1, prob=pMich)
+  XMinn <- rbinom(N, size=1, prob=pMinn)
+  XMissi <- rbinom(N, size=1, prob=pMissi)
+  XMisso <- rbinom(N, size=1, prob=pMisso)
+  XND <- rbinom(N, size=1, prob=pND)
+  XNeva <- rbinom(N, size=1, prob=pNeva)
+  XTenn <- rbinom(N, size=1, prob=pTenn)
+
+# assuming that all election results are independent of each other
+  Y <- XCal + XHaw + XMass + XMich +
+    XMinn + XMissi + XMisso + 
+    XND + XNeva + XTenn
+  elec.ind <- data.frame(Cal=XCal, Haw=XHaw, 
+                       Mass=XMass, Mich=XMich, 
+                       Minn=XMinn, Missi=XMissi, 
+                       Misso=XMisso, ND=XND, 
+                       Neva=XNeva, Tenn=XTenn, 
+                       tot=Y)
+
+# adding the 16 female senators we are sure about
+  elec.ind$tot <- elec.ind$tot + 16
 # assuming some dependency: if Heidi Heidkamp wins, than this will lift up McCaskill and Rosen.
   elec.dep <- elec.ind
   for (i in 1:N) {
@@ -165,7 +212,7 @@ election <- function(prob, N) {
   elec.dep$tot <- elec.dep$tot + 16 
 
 # histogram
-  plot2 <- ggplot(data=elec.dep, aes(x=tot)) +
+  plot.fig <- ggplot(data=elec.dep, aes(x=tot)) +
     geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
     scale_x_continuous(breaks= seq(20, 26, by=1), limits = c(20, 27)) +
     scale_y_continuous(limits = c(0, 0.4)) +
@@ -176,12 +223,22 @@ election <- function(prob, N) {
   elec.dep %>% count(tot) %>% mutate(perc=100*n/N) -> result.dep
   result.dep$perc.round <- round_preserve_sum(result.dep$perc,0)
   
-  result.avg <- (result.ind + result.dep)/2 
-  result.avg$perc.round <- round_preserve_sum(result.avg$perc,0)
-  resultaat <- list(result.avg=result.avg, p1=plot1, p2=plot2)
-  return(resultaat)
+ # output
+  resultaat.dep <- list(result.dep=result.dep, plot.dep=plot.fig)
+  return(resultaat.dep)
+}
+@ 
+
+<<echo=FALSE>>=
+election.avg1 <- function(prob, N) { 
+  ind <- election.ind(prob, N)$result.ind
+  dep <- election.dep1(prob, N)$result.dep
+  resultaat.avg <- (ind + dep)/2 
+  resultaat.avg$perc.round <- round_preserve_sum(resultaat.avg$perc,0)
+  return(resultaat.avg)
 }
 @
+
 
 \frontmatter
 \chapter*{On 3 January 2019, how many U.S. senators will be women?}
@@ -281,7 +338,7 @@ result.ind$perc.round <- round_preserve_sum(result.ind$perc,0)
   25 or more & \Sexpr{result.ind$perc.round[5] + result.ind$perc.round[6]}
 \end{tabular}
 
-\subsection{Model with depence between the of race results}
+\subsection{Model with dependence between the of race results}
 We assume here that if Heidi Heidkamp wins, this is an indication of a ''blue wave" that will lift McCaskill and Rosen to win. It does not affect those races where the probability of a win is higher than 70\%. This is important for the race in Tennessee because a ''blue wave" would improve the chances of Bredesen (male, Dem) and decrease the chances of Blackburn (female, Rep).
 
 <<echo=TRUE>>=
@@ -354,9 +411,10 @@ result.avg$perc.round <- round_preserve_sum(result.avg$perc,0)
 Same calculation but with the latest forecasts by 538 and the whole calculation within the function \textit{election(prob, N)}:
 
 <<label=Simoct18,fig=TRUE,include=FALSE, echo=TRUE>>=
-res <- election(prob=c(0.984, 0.999, 0.999, 0.994, 0.996, 0.83, 0.583, 0.343, 0.443, 0.747),
-                N=10000)
-grid.arrange(res$p1, res$p2, nrow=1)
+prob <- c(0.984, 0.999, 0.999, 0.994, 0.996, 0.83, 0.583, 0.343, 0.443, 0.747)
+N <- 10000
+election.avg1(prob, N) -> res
+grid.arrange(election.ind(prob, N)$plot.ind, election.dep1(prob, N)$plot.dep, nrow=1)
 @
 
 \begin{figure}
@@ -375,6 +433,171 @@ grid.arrange(res$p1, res$p2, nrow=1)
   24 & \Sexpr{res$result.avg$perc.round[res$result.avg$tot==24]} \\
   25 or more & \Sexpr{sum(res$result.avg$perc.round[res$result.avg$tot>=25])}
 \end{tabular}
+
+\section{2018-10-19}
+
+Emil D quite rightly indicated that my ''dependency" model is flawed: a win for Heidkamp could suggest a ''blue wave" but that would not only affect Rosen and McCaskill (both Dems and women) but also the races in Mississippi (probably Espi (male, Dem) vs. Hyde-Smith (female, Rep)) and Tennesse (Bredesen (male, Dem) vs. Blackburn (female, Rep)).
+
+Let us quantify the ''blue wave": if Heidkamp wins the probability of a win for a Democratic candidate will rise everywhere. It will not effect most of the female candidates who have probabilities of 99\% and more. So we only look at Nevada, Missouri, Mississippi and Tennessee. Let's give a 'Heidkamp Bonus" to the Democratic candidate in case of a Heidkamp win. For the female candidates this means that Nevada and Missouri go up HB\% and Mississippi and Tennesse go down HB\% (in the dependency model). Because the chances for two female senators go up and for two go down, the effect should more or less even out so that the dependency model will almost be the same as the independent model. Let's see:
+
+Figure~\ref{fig:Simoct1905} and Table~\ref{tab:Simoct1905}
+
+<<echo=FALSE>>=
+election.dep2 <- function(prob, N, HD) { 
+    set.seed(2018)
+# start with independent races
+  
+# probability of a win for female candidate vs a man
+  pCal <- prob[1]
+  pHaw <- prob[2]
+  pMass <- prob[3]
+  pMich <- prob[4]
+  pMinn <- prob[5]
+  pMissi <- prob[6]
+  pMisso <- prob[7]
+  pND <- prob[8]
+  pNeva <- prob[9]
+  pTenn <- prob[10]
+
+# simulation of the N elections using a binomial distribution
+  XCal <- rbinom(N, size=1, prob=pCal)
+  XHaw <- rbinom(N, size=1, prob=pHaw)
+  XMass <- rbinom(N, size=1, prob=pMass)
+  XMich <- rbinom(N, size=1, prob=pMich)
+  XMinn <- rbinom(N, size=1, prob=pMinn)
+  XMissi <- rbinom(N, size=1, prob=pMissi)
+  XMisso <- rbinom(N, size=1, prob=pMisso)
+  XND <- rbinom(N, size=1, prob=pND)
+  XNeva <- rbinom(N, size=1, prob=pNeva)
+  XTenn <- rbinom(N, size=1, prob=pTenn)
+
+# assuming that all election results are independent of each other
+  Y <- XCal + XHaw + XMass + XMich +
+    XMinn + XMissi + XMisso + 
+    XND + XNeva + XTenn
+  elec.ind <- data.frame(Cal=XCal, Haw=XHaw, 
+                       Mass=XMass, Mich=XMich, 
+                       Minn=XMinn, Missi=XMissi, 
+                       Misso=XMisso, ND=XND, 
+                       Neva=XNeva, Tenn=XTenn, 
+                       tot=Y)
+
+# adding the 16 female senators we are sure about
+  elec.ind$tot <- elec.ind$tot + 16
+  
+# assuming some dependency: if Heidi Heidkamp wins, Democratic candidates get a HB% bonus. This means that, in case of a Heidkamp win, the probability for Missouri and Nevada get +HB and Mississippi and Tennesse get -HB
+  elec.dep <- elec.ind
+
+# in case of a Heidkamp win we rerun Missouri, Nevada, Mississipi and Tennesse with adjusted percentages (up and down)
+# using the Heidkamp Bonus HB
+  for (i in 1:N) {
+    if(elec.dep$ND[i] == 1) {
+      elec.dep$Misso[i] <- rbinom(1, size=1, prob=(pMisso + HB))
+      elec.dep$Neva[i] <- rbinom(1, size=1, prob=(pNeva + HB))
+      elec.dep$Missi[i] <- rbinom(1, size=1, prob=(pMissi - HB))
+      elec.dep$Tenn[i] <- rbinom(1, size=1, prob=(pTenn - HB))
+    }
+  }
+  elec.dep$tot <- elec.dep$Cal + elec.dep$Haw + elec.dep$Mass +
+    elec.dep$Mich + elec.dep$Minn + elec.dep$Missi +
+    elec.dep$Misso + elec.dep$ND + elec.dep$Neva +
+    elec.dep$Tenn
+
+# adding the 16 female senators we are sure about
+  elec.dep$tot <- elec.dep$tot + 16 
+
+# histogram
+  plot.fig <- ggplot(data=elec.dep, aes(x=tot)) +
+    geom_histogram(aes(y=..density..), position="identity", binwidth=1, colour="Red", fill="Blue", alpha=0.25) +
+    scale_x_continuous(breaks= seq(20, 26, by=1), limits = c(20, 27)) +
+    scale_y_continuous(limits = c(0, 0.4)) +
+    labs(title="Dependent races", x="number of female senators", y="density") +
+    JT.theme
+
+# table of probabilities
+  elec.dep %>% count(tot) %>% mutate(perc=100*n/N) -> result.dep
+  result.dep$perc.round <- round_preserve_sum(result.dep$perc,0)
+  
+ # output
+  resultaat.dep <- list(result.dep=result.dep, plot.dep=plot.fig)
+  return(resultaat.dep)
+}
+@ 
+
+<<echo=FALSE>>=
+election.avg2 <- function(prob, N, HB) { 
+  ind <- election.ind(prob, N)$result.ind
+  dep <- election.dep2(prob, N, HB)$result.dep
+  resultaat.avg <- (ind + dep)/2 
+  resultaat.avg$perc.round <- round_preserve_sum(resultaat.avg$perc,0)
+  return(resultaat.avg)
+}
+@
+
+<<label=Simoct1905,fig=TRUE,include=FALSE, echo=TRUE>>=
+prob <- c(0.984, 0.999, 0.999, 0.994, 0.996, 0.83, 0.583, 0.343, 0.443, 0.747)
+N <- 10000
+HB <- 0.05
+election.ind(prob, N) -> res.ind
+election.dep2(prob, N, HB) -> res.dep2
+election.avg2(prob, N, HB) -> res.avg2
+grid.arrange(res.ind$plot.ind, res.dep2$plot.dep, nrow=1)
+@
+
+\begin{figure}
+\includegraphics[width=0.85\textwidth]{WS-Simoct1905}
+\caption{Probability of number of female senators elected: Heidkamp Bonus=5\%}
+\label{fig:Simoct1905}
+\setfloatalignment{b}% forces caption to be bottom-aligned
+\end{figure}
+
+\begin{tabular}{ l c c c}
+ & independent & dependent & average \\
+ \hline 
+  19 or fewer & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot<=19])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot<=19])} & \Sexpr{sum(res.avg2$perc.round[res.avg2$tot<=19])} \\
+  20 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==20])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==20])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==20]} \\
+  21 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==21])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==21])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==21]} \\
+  22 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==22])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==22])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==22]} \\
+  23 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==23])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==23])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==23]} \\
+  24 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==24])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==24])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==24]} \\
+  25 or more & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot>=25])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot>=25])} &\Sexpr{sum(res.avg2$perc.round[res.avg2$tot>=25])}
+\label{tab:Simoct1905}
+\end{tabular}
+
+Let's try a 10\% Heidkamp Bonus (Figure~\ref{fig:Simoct1910} and Table~\ref{tab:Simoct1910})
+
+<<label=Simoct1910,fig=TRUE,include=FALSE, echo=TRUE>>=
+prob <- c(0.984, 0.999, 0.999, 0.994, 0.996, 0.83, 0.583, 0.343, 0.443, 0.747)
+N <- 10000
+HB <- 0.1
+election.ind(prob, N) -> res.ind
+election.dep2(prob, N, HB) -> res.dep2
+election.avg2(prob, N, HB) -> res.avg2
+grid.arrange(res.ind$plot.ind, res.dep2$plot.dep, nrow=1)
+@
+
+\begin{figure}
+\includegraphics[width=0.85\textwidth]{WS-Simoct1905}
+\caption{Probability of number of female senators elected: Heidkamp Bonus=10\%}
+\label{fig:Simoct1910}
+\setfloatalignment{b}% forces caption to be bottom-aligned
+\end{figure}
+
+\begin{tabular}{ l c c c}
+ & independent & dependent & average \\
+ \hline 
+  19 or fewer & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot<=19])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot<=19])} & \Sexpr{sum(res.avg2$perc.round[res.avg2$tot<=19])} \\
+  20 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==20])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==20])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==20]} \\
+  21 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==21])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==21])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==21]} \\
+  22 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==22])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==22])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==22]} \\
+  23 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==23])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==23])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==23]} \\
+  24 & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot==24])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot==24])} &\Sexpr{res.avg2$perc.round[res.avg2$tot==24]} \\
+  25 or more & \Sexpr{sum(res.ind$result.ind$perc.round[res.ind$result.ind$tot>=25])} & \Sexpr{sum(res.dep2$result.dep$perc.round[res.dep2$result.dep$tot>=25])} &\Sexpr{sum(res.avg2$perc.round[res.avg2$tot>=25])}
+\label{tab:Simoct1910}
+\end{tabular}
+
+\textbf{Conclusion}: What was expected happened: the effects of the Heidkamp Bonus cancel each other out. We can stick with the independent model!
+
 
 \newpage
 \textbf{Thanks} \\
